@@ -4,6 +4,7 @@ import { RegisterUserDto } from './dto/registerUser.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { LoginUserDto } from './dto/loginUser.dto';
+import { ForgotPasswordDto } from './dto/forgotPassword.dto';
 
 @Injectable()
 export class AuthService {
@@ -59,6 +60,49 @@ export class AuthService {
         const payload = { email: user.email, sub: user.id };
         const token = await this.jwtService.signAsync(payload);
 
+        return { ...user, token };
+    }
+
+    async forgotPassword(forgotPasswordDto: ForgotPasswordDto){
+        // Implementation for forgot password logic
+        /**
+         * 1. check if the user exists
+         * 2. generate a password reset token
+         * 3. send the password reset token to the user's email
+         * 4. return a success message
+         */
+        const user = await this.userService.getUserByEmail(forgotPasswordDto.email);
+        if (!user) {
+            throw new UnauthorizedException('You will receive an email if the account exists');
+        }
+
+        return { message: 'Password reset token sent to email' };
+    }
+
+    async validateGoogleUser(googleProfile: { email: string; fname: string; lname: string }) {
+        const existingUser = await this.userService.getUserByEmail(googleProfile.email);
+        if (existingUser) {
+            return existingUser;
+        }
+
+        // Social login users do not provide local password; store a strong random hash.
+        const randomPassword = await bcrypt.hash(`${Date.now()}-${Math.random()}`, 10);
+        return this.userService.createUser({
+            email: googleProfile.email,
+            fname: googleProfile.fname,
+            lname: googleProfile.lname,
+            password: randomPassword,
+        });
+    }
+
+    async googleLogin(googleUser: { email: string }) {
+        const user = await this.userService.getUserByEmail(googleUser.email);
+        if (!user) {
+            throw new UnauthorizedException('Google authentication failed');
+        }
+
+        const payload = { email: user.email, sub: user.id };
+        const token = await this.jwtService.signAsync(payload);
         return { ...user, token };
     }
 }
